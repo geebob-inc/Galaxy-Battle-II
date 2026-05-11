@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Moonwalk Simulator 3D</title>
+<title>Moonwalk Simulator</title>
 
 <style>
     body {
@@ -13,315 +13,267 @@
         font-family: Arial, sans-serif;
     }
 
-    #hud {
+    canvas {
+        display: block;
+    }
+
+    .hud {
         position: absolute;
         top: 15px;
         left: 15px;
         color: white;
-        background: rgba(0,0,0,0.45);
+        background: rgba(0,0,0,0.5);
         padding: 12px;
-        border-radius: 12px;
-        z-index: 10;
-        line-height: 1.5;
-        backdrop-filter: blur(5px);
-    }
-
-    #crosshair {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        width: 20px;
-        height: 20px;
-        margin-left: -10px;
-        margin-top: -10px;
-        z-index: 10;
-        pointer-events: none;
-    }
-
-    #crosshair::before,
-    #crosshair::after {
-        content: "";
-        position: absolute;
-        background: white;
-    }
-
-    #crosshair::before {
-        left: 9px;
-        top: 0;
-        width: 2px;
-        height: 20px;
-    }
-
-    #crosshair::after {
-        left: 0;
-        top: 9px;
-        width: 20px;
-        height: 2px;
-    }
-
-    canvas {
-        display: block;
+        border-radius: 10px;
+        line-height: 1.6;
     }
 </style>
 </head>
 <body>
 
-<div id="hud">
-    <b>🌕 Moonwalk Simulator</b><br>
-    Click screen to start<br><br>
-
+<div class="hud">
+    <b>Moonwalk Simulator</b><br>
     WASD = Move<br>
     Mouse = Look Around<br>
-    SPACE = Moon Jump<br>
-    SHIFT = Sprint
+    Space = Jump<br>
+    Shift = Sprint
 </div>
 
-<div id="crosshair"></div>
+<canvas id="game"></canvas>
 
-<script type="module">
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js";
-import { PointerLockControls } from "https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/controls/PointerLockControls.js";
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
 
-// SCENE
-const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x000000, 20, 250);
+let keys = {};
 
-// CAMERA
-const camera = new THREE.PerspectiveCamera(
-    75,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-);
+document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
-camera.position.y = 2;
+// PLAYER
+const player = {
+    x: 0,
+    y: 1.8,
+    z: 0,
+    velY: 0,
+    rotY: 0,
+    speed: 0.08,
+    jumping: false
+};
 
-// RENDERER
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-document.body.appendChild(renderer.domElement);
+// MOUSE LOOK
+canvas.addEventListener("click", () => {
+    canvas.requestPointerLock();
+});
 
-// LIGHTS
-const ambient = new THREE.AmbientLight(0x888888);
-scene.add(ambient);
-
-const moonLight = new THREE.DirectionalLight(0xffffff, 1.5);
-moonLight.position.set(30, 50, 10);
-moonLight.castShadow = true;
-scene.add(moonLight);
+document.addEventListener("mousemove", e => {
+    if (document.pointerLockElement === canvas) {
+        player.rotY += e.movementX * 0.002;
+    }
+});
 
 // STARS
-const starGeo = new THREE.BufferGeometry();
-const starVertices = [];
-
-for (let i = 0; i < 10000; i++) {
-    starVertices.push(
-        (Math.random() - 0.5) * 2000,
-        Math.random() * 1000,
-        (Math.random() - 0.5) * 2000
-    );
-}
-
-starGeo.setAttribute(
-    "position",
-    new THREE.Float32BufferAttribute(starVertices, 3)
-);
-
-const starMat = new THREE.PointsMaterial({
-    color: 0xffffff,
-    size: 1
-});
-
-const stars = new THREE.Points(starGeo, starMat);
-scene.add(stars);
-
-// MOON GROUND
-const groundGeo = new THREE.PlaneGeometry(500, 500, 120, 120);
-
-// deform terrain
-const pos = groundGeo.attributes.position;
-
-for (let i = 0; i < pos.count; i++) {
-    const y =
-        Math.sin(i * 0.3) * 0.8 +
-        Math.random() * 1.5;
-
-    pos.setZ(i, y);
-}
-
-groundGeo.computeVertexNormals();
-
-const groundMat = new THREE.MeshStandardMaterial({
-    color: 0x777777,
-    roughness: 1
-});
-
-const ground = new THREE.Mesh(groundGeo, groundMat);
-
-ground.rotation.x = -Math.PI / 2;
-ground.receiveShadow = true;
-scene.add(ground);
-
-// CRATERS
-for (let i = 0; i < 120; i++) {
-
-    const craterGeo = new THREE.CylinderGeometry(
-        Math.random() * 4 + 2,
-        Math.random() * 6 + 4,
-        1,
-        32
-    );
-
-    const craterMat = new THREE.MeshStandardMaterial({
-        color: 0x666666
+const stars = [];
+for (let i = 0; i < 300; i++) {
+    stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 2
     });
-
-    const crater = new THREE.Mesh(craterGeo, craterMat);
-
-    crater.position.set(
-        (Math.random() - 0.5) * 400,
-        0.2,
-        (Math.random() - 0.5) * 400
-    );
-
-    crater.rotation.x = Math.PI / 2;
-
-    scene.add(crater);
 }
 
 // ROCKS
-for (let i = 0; i < 300; i++) {
-
-    const size = Math.random() * 1.8 + 0.5;
-
-    const rockGeo = new THREE.DodecahedronGeometry(size);
-    const rockMat = new THREE.MeshStandardMaterial({
-        color: 0x888888
+const rocks = [];
+for (let i = 0; i < 80; i++) {
+    rocks.push({
+        x: (Math.random() - 0.5) * 120,
+        z: (Math.random() - 0.5) * 120,
+        size: Math.random() * 2 + 1
     });
-
-    const rock = new THREE.Mesh(rockGeo, rockMat);
-
-    rock.position.set(
-        (Math.random() - 0.5) * 400,
-        size / 2,
-        (Math.random() - 0.5) * 400
-    );
-
-    rock.rotation.set(
-        Math.random(),
-        Math.random(),
-        Math.random()
-    );
-
-    rock.castShadow = true;
-
-    scene.add(rock);
 }
 
-// EARTH IN SKY
-const earthGeo = new THREE.SphereGeometry(10, 64, 64);
+// SIMPLE 3D PROJECTION
+function project(x, y, z) {
+    const dx = x - player.x;
+    const dz = z - player.z;
 
-const earthMat = new THREE.MeshStandardMaterial({
-    color: 0x2266ff,
-    emissive: 0x112244
-});
+    const sin = Math.sin(-player.rotY);
+    const cos = Math.cos(-player.rotY);
 
-const earth = new THREE.Mesh(earthGeo, earthMat);
+    const rx = dx * cos - dz * sin;
+    const rz = dx * sin + dz * cos;
 
-earth.position.set(-80, 60, -150);
+    if (rz <= 0.1) return null;
 
-scene.add(earth);
+    const scale = 500 / rz;
 
-// CONTROLS
-const controls = new PointerLockControls(camera, document.body);
+    return {
+        x: canvas.width / 2 + rx * scale,
+        y: canvas.height / 2 + y * scale,
+        scale
+    };
+}
 
-document.body.addEventListener("click", () => {
-    controls.lock();
-});
+// DRAW SKY
+function drawSky() {
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "white";
+    for (const s of stars) {
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// DRAW GROUND
+function drawGround() {
+    ctx.fillStyle = "#666";
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height / 2);
+    ctx.lineTo(canvas.width, canvas.height / 2);
+    ctx.lineTo(canvas.width, canvas.height);
+    ctx.lineTo(0, canvas.height);
+    ctx.fill();
+
+    // Ground lines
+    ctx.strokeStyle = "#777";
+
+    for (let z = 2; z < 100; z += 2) {
+        const p1 = project(-50, 1, z + player.z);
+        const p2 = project(50, 1, z + player.z);
+
+        if (p1 && p2) {
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+        }
+    }
+}
+
+// DRAW ROCKS
+function drawRocks() {
+    for (const rock of rocks) {
+        const p = project(rock.x, 1, rock.z);
+
+        if (!p) continue;
+
+        const size = rock.size * p.scale;
+
+        ctx.fillStyle = "#888";
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// DRAW EARTH
+function drawEarth() {
+    ctx.beginPath();
+    ctx.arc(canvas.width - 180, 140, 90, 0, Math.PI * 2);
+
+    const grad = ctx.createRadialGradient(
+        canvas.width - 210,
+        110,
+        20,
+        canvas.width - 180,
+        140,
+        90
+    );
+
+    grad.addColorStop(0, "#4fc3f7");
+    grad.addColorStop(1, "#0d47a1");
+
+    ctx.fillStyle = grad;
+    ctx.fill();
+}
+
+// CROSSHAIR
+function drawCrosshair() {
+    ctx.strokeStyle = "white";
+
+    ctx.beginPath();
+    ctx.moveTo(canvas.width/2 - 10, canvas.height/2);
+    ctx.lineTo(canvas.width/2 + 10, canvas.height/2);
+
+    ctx.moveTo(canvas.width/2, canvas.height/2 - 10);
+    ctx.lineTo(canvas.width/2, canvas.height/2 + 10);
+
+    ctx.stroke();
+}
 
 // MOVEMENT
-const keys = {};
+function update() {
 
-document.addEventListener("keydown", e => {
-    keys[e.key.toLowerCase()] = true;
-});
+    let moveSpeed = keys["shift"] ? 0.14 : player.speed;
 
-document.addEventListener("keyup", e => {
-    keys[e.key.toLowerCase()] = false;
-});
+    let dx = 0;
+    let dz = 0;
 
-let velocityY = 0;
-let canJump = true;
+    if (keys["w"]) dz += moveSpeed;
+    if (keys["s"]) dz -= moveSpeed;
+    if (keys["a"]) dx -= moveSpeed;
+    if (keys["d"]) dx += moveSpeed;
 
-const clock = new THREE.Clock();
+    player.x += Math.sin(player.rotY) * dz;
+    player.z += Math.cos(player.rotY) * dz;
 
-// ANIMATE
-function animate() {
+    player.x += Math.sin(player.rotY + Math.PI/2) * dx;
+    player.z += Math.cos(player.rotY + Math.PI/2) * dx;
 
-    requestAnimationFrame(animate);
-
-    const delta = clock.getDelta();
-
-    let speed = keys["shift"] ? 22 : 12;
-
-    const forward = new THREE.Vector3();
-    camera.getWorldDirection(forward);
-    forward.y = 0;
-    forward.normalize();
-
-    const right = new THREE.Vector3();
-    right.crossVectors(forward, new THREE.Vector3(0,1,0));
-
-    // MOVEMENT
-    if (keys["w"])
-        controls.getObject().position.addScaledVector(forward, speed * delta);
-
-    if (keys["s"])
-        controls.getObject().position.addScaledVector(forward, -speed * delta);
-
-    if (keys["a"])
-        controls.getObject().position.addScaledVector(right, speed * delta);
-
-    if (keys["d"])
-        controls.getObject().position.addScaledVector(right, -speed * delta);
-
-    // LOW GRAVITY
-    velocityY -= 0.25 * delta;
-
-    controls.getObject().position.y += velocityY;
-
-    // GROUND COLLISION
-    if (controls.getObject().position.y < 2) {
-        velocityY = 0;
-        controls.getObject().position.y = 2;
-        canJump = true;
+    // Moon gravity jump
+    if (keys[" "] && !player.jumping) {
+        player.velY = 0.22;
+        player.jumping = true;
     }
 
-    // JUMP
-    if (keys[" "] && canJump) {
-        velocityY = 0.12;
-        canJump = false;
+    player.velY -= 0.008; // low moon gravity
+    player.y += player.velY;
+
+    if (player.y < 1.8) {
+        player.y = 1.8;
+        player.velY = 0;
+        player.jumping = false;
     }
-
-    // EARTH ROTATION
-    earth.rotation.y += 0.001;
-
-    renderer.render(scene, camera);
 }
 
-animate();
+// BOBBING
+function cameraBob() {
+    return Math.sin(Date.now() * 0.01) * 2;
+}
 
-// RESIZE
-window.addEventListener("resize", () => {
+// MAIN LOOP
+function loop() {
 
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
+    update();
 
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
+    drawSky();
+    drawGround();
+    drawRocks();
+    drawEarth();
 
+    drawCrosshair();
+
+    // Horizon shift from jump
+    ctx.save();
+    ctx.translate(0, cameraBob() - player.y * 10);
+    ctx.restore();
+
+    requestAnimationFrame(loop);
+}
+
+loop();
 </script>
+
 </body>
 </html>
