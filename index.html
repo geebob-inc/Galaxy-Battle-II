@@ -2,63 +2,52 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Galaxy Battle II Remake</title>
+<title>Galaxy Battle X</title>
 
 <style>
 body{
     margin:0;
     overflow:hidden;
-    background:#000;
+    background:black;
     font-family:Arial;
+    color:white;
+    text-align:center;
 }
 
 canvas{
     display:block;
-    background:#000;
+    margin:auto;
+    background:#050816;
+    border:3px solid cyan;
+    box-shadow:0 0 30px cyan;
 }
 
-#hud{
-    position:absolute;
-    top:10px;
-    left:10px;
-    color:#0ff;
-    font-size:18px;
-    text-shadow:0 0 10px #0ff;
-}
-
-#menu{
-    position:absolute;
-    top:50%;
-    left:50%;
-    transform:translate(-50%,-50%);
-    text-align:center;
-    color:white;
-}
-
-#menu h1{
-    font-size:50px;
+h1{
     color:cyan;
     text-shadow:0 0 20px cyan;
 }
 
-button{
-    padding:12px 28px;
-    border:none;
-    background:cyan;
-    color:black;
-    font-size:20px;
-    font-weight:bold;
-    cursor:pointer;
-    border-radius:8px;
+a{
+    color:lime;
+    font-size:18px;
 }
 
-a{
+#menu{
     position:absolute;
-    top:10px;
-    right:10px;
-    color:lime;
-    text-decoration:none;
-    font-size:16px;
+    width:100%;
+    top:40%;
+    left:50%;
+    transform:translate(-50%,-50%);
+}
+
+button{
+    padding:12px 30px;
+    font-size:20px;
+    background:cyan;
+    border:none;
+    cursor:pointer;
+    font-weight:bold;
+    border-radius:10px;
 }
 </style>
 </head>
@@ -66,34 +55,28 @@ a{
 <body>
 
 <a href="https://geebob-inc.github.io/main-page" target="_blank">
-Geebob Inc.
+Check out more from Geebob Inc. here
 </a>
 
-<div id="hud"></div>
+<h1>⚔ Galaxy Battle X ⚔</h1>
 
 <div id="menu">
-    <h1>⚔ GALAXY BATTLE II ⚔</h1>
-    <p>Defend the galaxy from enemy ships</p>
+    <h2>Defend the Galaxy</h2>
     <button onclick="startGame()">START GAME</button>
 </div>
 
-<canvas id="game"></canvas>
+<canvas id="gameCanvas" width="1000" height="550"></canvas>
 
 <script>
 
 /* ================= CANVAS ================= */
-
-const canvas=document.getElementById("game");
+const canvas=document.getElementById("gameCanvas");
 const ctx=canvas.getContext("2d");
 
-canvas.width=innerWidth;
-canvas.height=innerHeight;
-
 /* ================= AUDIO ================= */
-
 const AC=new(window.AudioContext||window.webkitAudioContext)();
 
-function sound(type){
+function playSound(type){
 
     const o=AC.createOscillator();
     const g=AC.createGain();
@@ -103,52 +86,33 @@ function sound(type){
 
     if(type=="laser"){
         o.type="square";
-        o.frequency.value=800;
-        g.gain.value=0.04;
+        o.frequency.value=700;
+        g.gain.value=0.05;
     }
 
     if(type=="boom"){
         o.type="sawtooth";
         o.frequency.value=120;
-        g.gain.value=0.09;
-    }
-
-    if(type=="hit"){
-        o.type="triangle";
-        o.frequency.value=300;
-        g.gain.value=0.05;
+        g.gain.value=0.1;
     }
 
     o.start();
-    o.stop(AC.currentTime+0.12);
+    o.stop(AC.currentTime+0.1);
 }
 
 /* ================= PLAYER ================= */
-
 class Player{
-
     constructor(){
-
         this.x=canvas.width/2;
-        this.y=canvas.height-100;
-
-        this.speed=6;
-
-        this.radius=20;
-
+        this.y=canvas.height-80;
+        this.radius=22;
+        this.speed=5;
         this.hp=100;
-
-        this.lives=3;
-
         this.bullets=[];
-
-        this.fireRate=150;
-
         this.lastShot=0;
     }
 
     draw(){
-
         ctx.save();
 
         ctx.translate(this.x,this.y);
@@ -157,7 +121,6 @@ class Player{
         ctx.shadowColor="cyan";
 
         let g=ctx.createLinearGradient(0,-30,0,30);
-
         g.addColorStop(0,"white");
         g.addColorStop(0.5,"cyan");
         g.addColorStop(1,"blue");
@@ -165,35 +128,11 @@ class Player{
         ctx.fillStyle=g;
 
         ctx.beginPath();
-        ctx.moveTo(0,-28);
+        ctx.moveTo(0,-25);
         ctx.lineTo(-20,20);
         ctx.lineTo(0,10);
         ctx.lineTo(20,20);
         ctx.closePath();
-
-        ctx.fill();
-
-        // cockpit
-        ctx.fillStyle="white";
-
-        ctx.beginPath();
-        ctx.arc(0,-8,5,0,Math.PI*2);
-        ctx.fill();
-
-        // flame
-        let flame=ctx.createLinearGradient(0,20,0,55);
-
-        flame.addColorStop(0,"rgba(0,255,255,0.9)");
-        flame.addColorStop(1,"rgba(0,0,0,0)");
-
-        ctx.fillStyle=flame;
-
-        ctx.beginPath();
-        ctx.moveTo(-7,20);
-        ctx.lineTo(0,55);
-        ctx.lineTo(7,20);
-        ctx.closePath();
-
         ctx.fill();
 
         ctx.restore();
@@ -201,197 +140,140 @@ class Player{
 }
 
 /* ================= BULLET ================= */
-
 class Bullet{
-
     constructor(x,y){
-
         this.x=x;
         this.y=y;
-
-        this.speed=10;
-
-        this.radius=3;
+        this.radius=4;
+        this.speed=9;
     }
 
     update(){
-
         this.y-=this.speed;
     }
 
     draw(){
-
+        ctx.fillStyle="yellow";
         ctx.shadowBlur=20;
         ctx.shadowColor="yellow";
 
-        let g=ctx.createLinearGradient(this.x,this.y,this.x,this.y+20);
-
-        g.addColorStop(0,"white");
-        g.addColorStop(1,"yellow");
-
-        ctx.fillStyle=g;
-
-        ctx.fillRect(this.x,this.y,3,16);
+        ctx.beginPath();
+        ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);
+        ctx.fill();
     }
 }
 
 /* ================= ENEMY ================= */
-
 class Enemy{
-
     constructor(){
-
         this.x=Math.random()*canvas.width;
-
         this.y=-40;
-
-        this.speed=2+Math.random()*2;
-
         this.radius=18;
-
+        this.speed=2+Math.random()*2;
         this.hp=2;
     }
 
     update(){
-
         this.y+=this.speed;
     }
 
     draw(){
-
         ctx.save();
 
         ctx.translate(this.x,this.y);
 
-        ctx.shadowBlur=30;
+        ctx.shadowBlur=25;
         ctx.shadowColor="red";
 
-        let core=ctx.createRadialGradient(0,0,2,0,0,25);
+        let g=ctx.createRadialGradient(0,0,2,0,0,25);
+        g.addColorStop(0,"white");
+        g.addColorStop(0.3,"red");
+        g.addColorStop(1,"darkred");
 
-        core.addColorStop(0,"white");
-        core.addColorStop(0.2,"#ff4444");
-        core.addColorStop(1,"#220000");
-
-        ctx.fillStyle=core;
+        ctx.fillStyle=g;
 
         ctx.beginPath();
         ctx.moveTo(0,-20);
-        ctx.lineTo(-18,0);
-        ctx.lineTo(0,22);
-        ctx.lineTo(18,0);
+        ctx.lineTo(-20,0);
+        ctx.lineTo(0,20);
+        ctx.lineTo(20,0);
         ctx.closePath();
-
         ctx.fill();
-
-        ctx.strokeStyle="rgba(255,0,0,0.5)";
-        ctx.lineWidth=2;
-
-        ctx.beginPath();
-        ctx.arc(0,0,20,0,Math.PI*2);
-        ctx.stroke();
 
         ctx.restore();
     }
 }
 
 /* ================= STARS ================= */
-
 let stars=[];
 
 function createStars(){
-
     stars=[];
-
-    for(let i=0;i<500;i++){
-
+    for(let i=0;i<300;i++){
         stars.push({
-
             x:Math.random()*canvas.width,
             y:Math.random()*canvas.height,
-            z:Math.random()*3+0.5,
-            tw:Math.random()*Math.PI*2
+            s:Math.random()*3
         });
     }
 }
 
-function drawBackground(){
+function drawStars(){
 
-    let g=ctx.createRadialGradient(
-        canvas.width/2,
-        canvas.height/2,
-        0,
-        canvas.width/2,
-        canvas.height/2,
-        canvas.width
-    );
-
-    g.addColorStop(0,"#07081a");
-    g.addColorStop(1,"#000");
-
-    ctx.fillStyle=g;
+    ctx.fillStyle="#050816";
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
     for(let s of stars){
 
-        s.tw+=0.05;
-
-        let glow=Math.sin(s.tw)*0.5+0.5;
-
-        ctx.globalAlpha=(s.z/3)*glow;
-
         ctx.fillStyle="white";
-        ctx.fillRect(s.x,s.y,s.z,s.z);
+        ctx.fillRect(s.x,s.y,s.s,s.s);
 
-        ctx.fillStyle="rgba(0,255,255,0.3)";
-        ctx.fillRect(s.x+1,s.y+1,s.z,s.z);
-
-        s.y+=s.z*1.2;
+        s.y+=s.s;
 
         if(s.y>canvas.height){
-
             s.y=0;
             s.x=Math.random()*canvas.width;
         }
     }
-
-    ctx.globalAlpha=1;
 }
 
-/* ================= GAME STATE ================= */
-
+/* ================= GAME ================= */
 let player=new Player();
-
 let enemies=[];
-
 let score=0;
-
-let running=false;
-
 let gameOver=false;
-
-/* ================= INPUT ================= */
+let running=false;
 
 const keys={};
 
-addEventListener("keydown",e=>keys[e.key]=true);
+document.addEventListener("keydown",e=>{
+    keys[e.key]=true;
+});
 
-addEventListener("keyup",e=>keys[e.key]=false);
+document.addEventListener("keyup",e=>{
+    keys[e.key]=false;
+});
 
 /* ================= START ================= */
-
 function startGame(){
-
     document.getElementById("menu").style.display="none";
 
     createStars();
 
     running=true;
 
-    loop();
+    gameLoop();
 }
 
-/* ================= MOVEMENT ================= */
+/* ================= SPAWN ENEMIES ================= */
+function spawnEnemy(){
 
+    if(Math.random()<0.03){
+        enemies.push(new Enemy());
+    }
+}
+
+/* ================= PLAYER MOVEMENT ================= */
 function movePlayer(){
 
     if(keys["a"]) player.x-=player.speed;
@@ -404,25 +286,21 @@ function movePlayer(){
 }
 
 /* ================= SHOOT ================= */
-
 function shoot(){
 
     let now=Date.now();
 
-    if(keys[" "] && now-player.lastShot>player.fireRate){
+    if(keys[" "] && now-player.lastShot>150){
 
-        player.bullets.push(
-            new Bullet(player.x,player.y-20)
-        );
+        player.bullets.push(new Bullet(player.x,player.y-20));
 
         player.lastShot=now;
 
-        sound("laser");
+        playSound("laser");
     }
 }
 
-/* ================= BULLETS ================= */
-
+/* ================= UPDATE BULLETS ================= */
 function updateBullets(){
 
     for(let i=player.bullets.length-1;i>=0;i--){
@@ -430,28 +308,15 @@ function updateBullets(){
         let b=player.bullets[i];
 
         b.update();
-
         b.draw();
 
         if(b.y<0){
-
             player.bullets.splice(i,1);
         }
     }
 }
 
-/* ================= SPAWN ENEMIES ================= */
-
-function spawnEnemies(){
-
-    if(Math.random()<0.03){
-
-        enemies.push(new Enemy());
-    }
-}
-
-/* ================= ENEMIES ================= */
-
+/* ================= UPDATE ENEMIES ================= */
 function updateEnemies(){
 
     for(let i=enemies.length-1;i>=0;i--){
@@ -459,32 +324,23 @@ function updateEnemies(){
         let e=enemies[i];
 
         e.update();
-
         e.draw();
 
-        // player hit
-        if(Math.hypot(player.x-e.x,player.y-e.y)<25){
+        // PLAYER HIT
+        if(Math.hypot(player.x-e.x,player.y-e.y)<35){
 
             player.hp-=20;
 
             enemies.splice(i,1);
 
-            sound("hit");
+            playSound("boom");
 
             if(player.hp<=0){
-
-                player.lives--;
-
-                player.hp=100;
-
-                if(player.lives<=0){
-
-                    gameOver=true;
-                }
+                gameOver=true;
             }
         }
 
-        // bullet collision
+        // BULLET HIT
         for(let j=player.bullets.length-1;j>=0;j--){
 
             let b=player.bullets[j];
@@ -497,73 +353,58 @@ function updateEnemies(){
 
                 if(e.hp<=0){
 
-                    score+=10;
-
                     enemies.splice(i,1);
 
-                    sound("boom");
+                    score+=10;
+
+                    playSound("boom");
                 }
 
                 break;
             }
         }
 
-        if(e.y>canvas.height+50){
-
+        if(e.y>canvas.height+40){
             enemies.splice(i,1);
         }
     }
 }
 
 /* ================= HUD ================= */
-
 function drawHUD(){
 
-    document.getElementById("hud").innerHTML=
-    `
-    Galaxy Battle II<br>
-    Score: ${score}<br>
-    HP: ${player.hp}<br>
-    Lives: ${player.lives}<br>
-    Enemies: ${enemies.length}
-    `;
+    ctx.fillStyle="cyan";
+    ctx.font="22px Arial";
+
+    ctx.fillText("Score: "+score,20,30);
+    ctx.fillText("HP: "+player.hp,20,60);
+    ctx.fillText("Enemies: "+enemies.length,20,90);
+
+    ctx.fillStyle="white";
+    ctx.font="16px Arial";
+    ctx.fillText("WASD = Move | SPACE = Shoot",20,120);
 }
 
 /* ================= GAME OVER ================= */
-
 function drawGameOver(){
 
     ctx.fillStyle="rgba(0,0,0,0.7)";
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
     ctx.fillStyle="red";
-    ctx.font="60px Arial";
-
-    ctx.fillText(
-        "GAME OVER",
-        canvas.width/2-200,
-        canvas.height/2-20
-    );
+    ctx.font="50px Arial";
+    ctx.fillText("GAME OVER",canvas.width/2-170,canvas.height/2-20);
 
     ctx.fillStyle="white";
     ctx.font="28px Arial";
+    ctx.fillText("Final Score: "+score,canvas.width/2-100,canvas.height/2+40);
 
-    ctx.fillText(
-        "Final Score: "+score,
-        canvas.width/2-100,
-        canvas.height/2+40
-    );
-
-    ctx.fillText(
-        "Press R to Restart",
-        canvas.width/2-120,
-        canvas.height/2+90
-    );
+    ctx.font="20px Arial";
+    ctx.fillText("Press R to Restart",canvas.width/2-90,canvas.height/2+90);
 }
 
 /* ================= RESTART ================= */
-
-addEventListener("keydown",e=>{
+document.addEventListener("keydown",e=>{
 
     if(e.key=="r" && gameOver){
 
@@ -578,14 +419,13 @@ addEventListener("keydown",e=>{
 });
 
 /* ================= MAIN LOOP ================= */
-
-function loop(){
+function gameLoop(){
 
     if(!running) return;
 
-    requestAnimationFrame(loop);
+    requestAnimationFrame(gameLoop);
 
-    drawBackground();
+    drawStars();
 
     if(!gameOver){
 
@@ -593,7 +433,7 @@ function loop(){
 
         shoot();
 
-        spawnEnemies();
+        spawnEnemy();
 
         player.draw();
 
@@ -610,6 +450,8 @@ function loop(){
 }
 
 </script>
+
+<p style="color:cyan;">A Geebob Inc. Production</p>
 
 </body>
 </html>
